@@ -28,7 +28,7 @@ A secure, real-time chat application with end-to-end encryption, similar to Tele
 ## Prerequisites
 
 - Node.js (v14 or higher)
-- PostgreSQL (v12 or higher)
+- PostgreSQL (v12 or higher) OR Docker and Docker Compose
 
 ## Installation
 
@@ -37,12 +37,31 @@ A secure, real-time chat application with end-to-end encryption, similar to Tele
    - Ubuntu: `sudo apt-get install postgresql`
    - Windows: Download from [postgresql.org](https://www.postgresql.org/download/)
 
-2. **Create PostgreSQL database**:
+2. **Set up PostgreSQL database**:
+
+   **Option A: Using Docker Compose (Recommended)**
    ```bash
-   createdb e2e_chat
+   # Make sure you have backend/.env configured
+   cd backend
+   cp .env.example .env
+   # Edit .env with your desired database credentials
+   
+   # Start PostgreSQL with Docker Compose
+   cd ..
+   npm run docker:up
    ```
-   Or use the provided SQL script:
+   This will automatically:
+   - Create the PostgreSQL container
+   - Create the database
+   - Run the initialization script
+   - Set up the schema
+
+   **Option B: Using local PostgreSQL**
    ```bash
+   # Create database manually
+   createdb e2e_chat
+   
+   # Or use the provided SQL script
    cd backend
    psql -U postgres -f database-setup.sql
    ```
@@ -256,6 +275,30 @@ npm run frontend:build
 
 ### Database Connection Issues
 
+**If using Docker Compose:**
+
+1. Check if the container is running:
+   ```bash
+   docker-compose ps
+   ```
+
+2. View database logs:
+   ```bash
+   npm run docker:logs
+   ```
+
+3. Restart the database:
+   ```bash
+   npm run docker:restart
+   ```
+
+4. Access PostgreSQL directly:
+   ```bash
+   npm run docker:psql
+   ```
+
+**If using local PostgreSQL:**
+
 1. Make sure PostgreSQL is running:
    ```bash
    # macOS
@@ -270,7 +313,7 @@ npm run frontend:build
    psql -U postgres -l | grep e2e_chat
    ```
 
-3. Check connection credentials in `.env` file
+3. Check connection credentials in `backend/.env` file
 
 ### Port Already in Use
 

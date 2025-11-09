@@ -12,7 +12,12 @@
     "ngrok:backend": "./scripts/start-ngrok-backend.sh",
     "ngrok:frontend": "./scripts/start-ngrok-frontend.sh",
     "ngrok:both": "./scripts/start-ngrok-both.sh",
-    "dev:ngrok": "concurrently \"npm run backend:dev\" \"npm run ngrok:backend\""
+    "dev:ngrok": "concurrently \"npm run backend:dev\" \"npm run ngrok:backend\"",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f postgres",
+    "docker:restart": "docker-compose restart postgres",
+    "docker:psql": "docker-compose exec postgres psql -U ${DB_USER:-postgres} -d ${DB_NAME:-e2e_chat}"
   },
   "keywords": ["chat", "encryption", "e2e", "websocket"],
   "author": "",
