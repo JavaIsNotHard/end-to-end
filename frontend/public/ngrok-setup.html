@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ngrok Backend URL Setup</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        p {
+            color: #666;
+            line-height: 1.6;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            margin: 15px 0;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #2196f3;
+        }
+        .success {
+            background: #e8f5e9;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #4caf50;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Backend URL Configuration</h1>
+        <p>Enter your backend ngrok URL to connect the frontend to your backend server.</p>
+
+        <div class="info">
+            <strong>How to get your backend ngrok URL:</strong><br>
+            1. Start your backend server: <code>npm run server</code><br>
+            2. In another terminal, run: <code>npm run ngrok</code><br>
+            3. Copy the HTTPS URL (e.g., <code>https://abc123.ngrok.io</code>)
+        </div>
+
+        <input
+            type="text"
+            id="backendUrl"
+            placeholder="https://your-backend-ngrok-url.ngrok.io"
+            value=""
+        >
+
+        <button onclick="saveBackendUrl()">Save Backend URL</button>
+
+        <div class="success" id="success">
+            ✅ Backend URL saved! Redirecting to the app...
+        </div>
+    </div>
+
+    <script>
+        // Check if URL parameter is provided
+        const urlParams = new URLSearchParams(window.location.search);
+        const backendParam = urlParams.get('backend');
+        if (backendParam) {
+            document.getElementById('backendUrl').value = backendParam;
+        }
+
+        // Load saved URL
+        const savedUrl = localStorage.getItem('backend_ngrok_url');
+        if (savedUrl && !backendParam) {
+            document.getElementById('backendUrl').value = savedUrl;
+        }
+
+        function saveBackendUrl() {
+            const url = document.getElementById('backendUrl').value.trim();
+
+            if (!url) {
+                alert('Please enter a backend URL');
+                return;
+            }
+
+            // Validate URL
+            try {
+                new URL(url);
+            } catch (e) {
+                alert('Please enter a valid URL (e.g., https://abc123.ngrok.io)');
+                return;
+            }
+
+            // Remove trailing slash
+            const cleanUrl = url.replace(/\/$/, '');
+
+            // Save to localStorage
+            localStorage.setItem('backend_ngrok_url', cleanUrl);
+
+            // Show success message
+            document.getElementById('success').style.display = 'block';
+
+            // Redirect to main app after 1 second
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 1000);
+        }
+
+        // Allow Enter key to submit
+        document.getElementById('backendUrl').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                saveBackendUrl();
+            }
+        });
+    </script>
+</body>
+</html>
+

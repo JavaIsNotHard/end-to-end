@@ -1,0 +1,24 @@
+{
+  "name": "e2e-chat-app",
+  "version": "1.0.0",
+  "description": "End-to-end encrypted chat application",
+  "scripts": {
+    "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "dev": "concurrently \"npm run backend:dev\" \"npm run frontend:dev\"",
+    "backend:dev": "cd backend && npm run dev",
+    "backend:start": "cd backend && npm start",
+    "frontend:dev": "cd frontend && npm start",
+    "frontend:build": "cd frontend && npm run build",
+    "ngrok:backend": "./scripts/start-ngrok-backend.sh",
+    "ngrok:frontend": "./scripts/start-ngrok-frontend.sh",
+    "ngrok:both": "./scripts/start-ngrok-both.sh",
+    "dev:ngrok": "concurrently \"npm run backend:dev\" \"npm run ngrok:backend\""
+  },
+  "keywords": ["chat", "encryption", "e2e", "websocket"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+}
+
