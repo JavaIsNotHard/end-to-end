@@ -72,3 +72,50 @@
   line-height: 1.5;
 }
 
+.error-message {
+  color: #e74c3c;
+  font-size: 0.9rem;
+  margin-bottom: 15px;
+  padding: 10px;
+  background-color: #fee;
+  border-radius: 5px;
+  border: 1px solid #fcc;
+}
+
+.auth-toggle {
+  margin-top: 20px;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.toggle-button {
+  background: none;
+  border: none;
+  color: #667eea;
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: 0.9rem;
+  padding: 0;
+  margin-left: 5px;
+}
+
+.toggle-button:hover {
+  color: #764ba2;
+}
+
+.toggle-button:disabled {
+  color: #999;
+  cursor: not-allowed;
+}
+
+.login-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.username-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+

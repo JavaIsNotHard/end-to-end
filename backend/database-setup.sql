@@ -14,6 +14,7 @@
 CREATE TABLE IF NOT EXISTS users (
   user_id UUID PRIMARY KEY,
   username VARCHAR(255) UNIQUE NOT NULL,
+  password_hash VARCHAR(255),
   public_key JSONB,
   socket_id VARCHAR(255),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

@@ -24,8 +24,20 @@ const ChatInterface = ({ userId, username, onLogout }) => {
   useEffect(() => {
     // Get API URL (handles ngrok detection)
     const apiUrl = getApiUrl();
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      console.error('No token found, redirecting to login');
+      onLogout();
+      return;
+    }
+
     console.log('Connecting to backend at:', apiUrl);
-    const newSocket = io(apiUrl);
+    const newSocket = io(apiUrl, {
+      auth: {
+        token: token
+      }
+    });
     setSocket(newSocket);
 
     newSocket.on('connect', async () => {
@@ -36,11 +48,21 @@ const ChatInterface = ({ userId, username, onLogout }) => {
       const pair = await encryptionManager.generateKeyPair();
       keyPairRef.current = pair;
 
-      // Register with server
+      // Register with server (userId is now in the token)
       newSocket.emit('register', {
-        userId,
         publicKey: pair.publicKeyJwk,
       });
+    });
+
+    newSocket.on('connect_error', (error) => {
+      console.error('Socket connection error:', error);
+      if (error.message && error.message.includes('Authentication')) {
+        setConnectionStatus('authentication_failed');
+        alert('Authentication failed. Please login again.');
+        onLogout();
+      } else {
+        setConnectionStatus('connection_failed');
+      }
     });
 
     newSocket.on('registered', () => {

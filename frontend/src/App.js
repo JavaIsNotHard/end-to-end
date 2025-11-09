@@ -1,68 +1,129 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import './App.css';
 import Login from './components/Login';
 import ChatInterface from './components/ChatInterface';
+import PrivateRoute from './components/PrivateRoute';
 import { getApiUrl } from './utils/config';
 
-function App() {
-  const [userId, setUserId] = useState(() => {
-    return localStorage.getItem('userId') || null;
-  });
-  const [username, setUsername] = useState(() => {
-    return localStorage.getItem('username') || '';
-  });
+function AppContent() {
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
 
-  const handleLogin = async (username) => {
+  const handleLogin = async (username, password) => {
     try {
+      setError('');
       const apiUrl = getApiUrl();
-      const response = await fetch(`${apiUrl}/api/users/register`, {
+      const response = await fetch(`${apiUrl}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ username }),
+        body: JSON.stringify({ username, password }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Server error' }));
-        throw new Error(errorData.error || `Server error: ${response.status}`);
-      }
-
       const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || `Server error: ${response.status}`);
+      }
 
       if (data.error) {
         throw new Error(data.error);
       }
 
-      setUserId(data.userId);
-      setUsername(data.username);
+      // Store token and user info
+      localStorage.setItem('token', data.token);
       localStorage.setItem('userId', data.userId);
       localStorage.setItem('username', data.username);
+
+      // Navigate to chat
+      navigate('/chat');
     } catch (error) {
       console.error('Login error:', error);
+      setError(error.message || 'Failed to login. Please check your credentials.');
+    }
+  };
+
+  const handleRegister = async (username, password) => {
+    try {
+      setError('');
       const apiUrl = getApiUrl();
-      const errorMessage = error.message || `Failed to register. Please make sure the server is running at ${apiUrl}.`;
-      alert(errorMessage);
+      const response = await fetch(`${apiUrl}/api/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || `Server error: ${response.status}`);
+      }
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      // Store token and user info
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('userId', data.userId);
+      localStorage.setItem('username', data.username);
+
+      // Navigate to chat
+      navigate('/chat');
+    } catch (error) {
+      console.error('Registration error:', error);
+      setError(error.message || 'Failed to register. Please try again.');
     }
   };
 
   const handleLogout = () => {
-    setUserId(null);
-    setUsername('');
+    localStorage.removeItem('token');
     localStorage.removeItem('userId');
     localStorage.removeItem('username');
+    navigate('/login');
   };
 
-  if (!userId) {
-    return <Login onLogin={handleLogin} />;
-  }
+  // Check if user is already logged in
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const userId = localStorage.getItem('userId');
+    if (token && userId && window.location.pathname === '/') {
+      navigate('/chat');
+    }
+  }, [navigate]);
 
   return (
-    <ChatInterface
-      userId={userId}
-      username={username}
-      onLogout={handleLogout}
-    />
+    <Routes>
+      <Route path="/login" element={
+        localStorage.getItem('token') ? (
+          <Navigate to="/chat" replace />
+        ) : (
+          <Login onLogin={handleLogin} onRegister={handleRegister} error={error} />
+        )
+      } />
+      <Route path="/chat" element={
+        <PrivateRoute>
+          <ChatInterface
+            userId={localStorage.getItem('userId')}
+            username={localStorage.getItem('username')}
+            onLogout={handleLogout}
+          />
+        </PrivateRoute>
+      } />
+      <Route path="/" element={<Navigate to="/login" replace />} />
+    </Routes>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <AppContent />
+    </Router>
   );
 }
 

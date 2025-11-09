@@ -2,26 +2,26 @@ const { pool } = require('./db');
 const { v4: uuidv4 } = require('uuid');
 
 // User queries
-const createUser = async (userId, username) => {
+const createUser = async (userId, username, passwordHash) => {
   const query = `
-    INSERT INTO users (user_id, username)
-    VALUES ($1, $2)
+    INSERT INTO users (user_id, username, password_hash)
+    VALUES ($1, $2, $3)
     ON CONFLICT (username)
     DO UPDATE SET last_seen = CURRENT_TIMESTAMP
     RETURNING user_id, username, created_at
   `;
-  const result = await pool.query(query, [userId, username]);
+  const result = await pool.query(query, [userId, username, passwordHash]);
   return result.rows[0];
 };
 
 const getUserById = async (userId) => {
-  const query = 'SELECT user_id, username, public_key, socket_id FROM users WHERE user_id = $1';
+  const query = 'SELECT user_id, username, password_hash, public_key, socket_id FROM users WHERE user_id = $1';
   const result = await pool.query(query, [userId]);
   return result.rows[0];
 };
 
 const getUserByUsername = async (username) => {
-  const query = 'SELECT user_id, username, public_key, socket_id FROM users WHERE LOWER(username) = LOWER($1)';
+  const query = 'SELECT user_id, username, password_hash, public_key, socket_id FROM users WHERE LOWER(username) = LOWER($1)';
   const result = await pool.query(query, [username]);
   return result.rows[0];
 };

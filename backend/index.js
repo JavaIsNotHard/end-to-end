@@ -5,6 +5,7 @@ const cors = require('cors');
 const { v4: uuidv4 } = require('uuid');
 const { initSchema } = require('./db');
 const db = require('./db-queries');
+const { generateToken, hashPassword, comparePassword, authenticateToken, authenticateSocket } = require('./auth');
 
 const app = express();
 const server = http.createServer(app);
@@ -73,38 +74,145 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
 });
 
-// REST API routes
-app.post('/api/users/register', async (req, res) => {
+// Authentication routes (public)
+app.post('/api/auth/register', async (req, res) => {
   try {
-    const { username } = req.body;
+    const { username, password } = req.body;
 
     if (!username || username.trim() === '') {
       return res.status(400).json({ error: 'Username is required' });
+    }
+
+    if (!password || password.length < 6) {
+      return res.status(400).json({ error: 'Password is required and must be at least 6 characters' });
     }
 
     // Check if username already exists
     const existingUser = await db.getUserByUsername(username.trim());
 
     if (existingUser) {
-      // Return existing user instead of creating new one
-      return res.json({
-        userId: existingUser.user_id,
-        username: existingUser.username
-      });
+      return res.status(400).json({ error: 'Username already exists' });
     }
 
     const userId = uuidv4();
-    await db.createUser(userId, username.trim());
+    const passwordHash = await hashPassword(password);
+    await db.createUser(userId, username.trim(), passwordHash);
+
+    const token = generateToken(userId, username.trim());
 
     console.log(`User registered: ${username} (${userId})`);
-    res.json({ userId, username: username.trim() });
+    res.json({ 
+      token,
+      userId, 
+      username: username.trim() 
+    });
   } catch (error) {
     console.error('Registration error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-app.get('/api/users/:userId', async (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    if (!username || username.trim() === '') {
+      return res.status(400).json({ error: 'Username is required' });
+    }
+
+    if (!password) {
+      return res.status(400).json({ error: 'Password is required' });
+    }
+
+    const user = await db.getUserByUsername(username.trim());
+
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid username or password' });
+    }
+
+    if (!user.password_hash) {
+      return res.status(401).json({ error: 'Account not set up with password. Please register first.' });
+    }
+
+    const isPasswordValid = await comparePassword(password, user.password_hash);
+
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: 'Invalid username or password' });
+    }
+
+    const token = generateToken(user.user_id, user.username);
+
+    console.log(`User logged in: ${user.username} (${user.user_id})`);
+    res.json({ 
+      token,
+      userId: user.user_id, 
+      username: user.username 
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Legacy register endpoint (for backward compatibility, but requires password now)
+app.post('/api/users/register', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    if (!username || username.trim() === '') {
+      return res.status(400).json({ error: 'Username is required' });
+    }
+
+    if (!password || password.length < 6) {
+      return res.status(400).json({ error: 'Password is required and must be at least 6 characters' });
+    }
+
+    // Check if username already exists
+    const existingUser = await db.getUserByUsername(username.trim());
+
+    if (existingUser) {
+      return res.status(400).json({ error: 'Username already exists' });
+    }
+
+    const userId = uuidv4();
+    const passwordHash = await hashPassword(password);
+    await db.createUser(userId, username.trim(), passwordHash);
+
+    const token = generateToken(userId, username.trim());
+
+    console.log(`User registered: ${username} (${userId})`);
+    res.json({ 
+      token,
+      userId, 
+      username: username.trim() 
+    });
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Protected routes (require authentication)
+app.get('/api/users/me', authenticateToken, async (req, res) => {
+  try {
+    const user = await db.getUserById(req.user.userId);
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({
+      userId: user.user_id,
+      username: user.username,
+      publicKey: user.public_key
+    });
+  } catch (error) {
+    console.error('Get user error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.get('/api/users/:userId', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
     const user = await db.getUserById(userId);
@@ -124,7 +232,7 @@ app.get('/api/users/:userId', async (req, res) => {
   }
 });
 
-app.get('/api/users', async (req, res) => {
+app.get('/api/users', authenticateToken, async (req, res) => {
   try {
     const userList = await db.getAllUsers();
     res.json(userList.map(user => ({
@@ -138,12 +246,9 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
-app.get('/api/users/all', async (req, res) => {
+app.get('/api/users/all', authenticateToken, async (req, res) => {
   try {
-    const currentUserId = req.query.userId;
-    if (!currentUserId) {
-      return res.status(400).json({ error: 'userId query parameter is required' });
-    }
+    const currentUserId = req.user.userId;
     const userList = await db.getAllUsersWithStatus(currentUserId);
     res.json(userList);
   } catch (error) {
@@ -152,9 +257,16 @@ app.get('/api/users/all', async (req, res) => {
   }
 });
 
-app.get('/api/messages/:userId1/:userId2', async (req, res) => {
+app.get('/api/messages/:userId1/:userId2', authenticateToken, async (req, res) => {
   try {
     const { userId1, userId2 } = req.params;
+    const currentUserId = req.user.userId;
+
+    // Ensure user can only access their own messages
+    if (userId1 !== currentUserId && userId2 !== currentUserId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
     const limit = parseInt(req.query.limit) || 100;
     const messages = await db.getMessagesBetweenUsers(userId1, userId2, limit);
     res.json({ messages });
@@ -230,16 +342,22 @@ app.get('/api/admin/stats', async (req, res) => {
   }
 });
 
-// Socket.io connection handling
-io.on('connection', (socket) => {
-  console.log('User connected:', socket.id);
+// Socket.io connection handling with authentication
+io.use(authenticateSocket);
 
-  socket.on('register', async ({ userId, publicKey }) => {
+io.on('connection', (socket) => {
+  console.log('User connected:', socket.id, 'User:', socket.user.username);
+
+  const userId = socket.user.userId;
+
+  socket.on('register', async ({ publicKey }) => {
     try {
       const user = await db.getUserById(userId);
       if (user) {
         await db.updateUserSocket(userId, socket.id);
-        await db.updateUserPublicKey(userId, publicKey);
+        if (publicKey) {
+          await db.updateUserPublicKey(userId, publicKey);
+        }
         socketToUserId.set(socket.id, userId);
         userIdToSocket.set(userId, socket.id);
         socket.userId = userId;

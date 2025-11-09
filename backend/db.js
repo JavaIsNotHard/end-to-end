@@ -27,11 +27,25 @@ const initSchema = async () => {
       CREATE TABLE IF NOT EXISTS users (
         user_id UUID PRIMARY KEY,
         username VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255),
         public_key JSONB,
         socket_id VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
+    `);
+
+    // Add password_hash column if it doesn't exist (for existing databases)
+    await pool.query(`
+      DO $$ 
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name = 'users' AND column_name = 'password_hash'
+        ) THEN
+          ALTER TABLE users ADD COLUMN password_hash VARCHAR(255);
+        END IF;
+      END $$;
     `);
 
     // Create messages table
