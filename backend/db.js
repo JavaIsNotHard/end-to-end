@@ -1,79 +1,30 @@
-const { Pool } = require('pg');
 require('dotenv').config();
+const { PrismaClient } = require('@prisma/client');
 
-const pool = new Pool({
-  user: process.env.DB_USER || 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'e2e_chat',
-  password: process.env.DB_PASSWORD || 'postgres',
-  port: process.env.DB_PORT || 5432,
-});
+// Build DATABASE_URL from individual env vars if DATABASE_URL is not set
+if (!process.env.DATABASE_URL) {
+  const dbUser = process.env.DB_USER || 'postgres';
+  const dbPassword = process.env.DB_PASSWORD || 'postgres';
+  const dbHost = process.env.DB_HOST || 'localhost';
+  const dbPort = process.env.DB_PORT || 5432;
+  const dbName = process.env.DB_NAME || 'e2e_chat';
+  
+  process.env.DATABASE_URL = `postgresql://${dbUser}:${dbPassword}@${dbHost}:${dbPort}/${dbName}`;
+}
 
-// Test connection
-pool.on('connect', () => {
-  console.log('Connected to PostgreSQL database');
-});
-
-pool.on('error', (err) => {
-  console.error('Unexpected error on idle client', err);
-  process.exit(-1);
+const prisma = new PrismaClient({
+  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
 });
 
 // Initialize database schema
 const initSchema = async () => {
   try {
-    // Create users table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        user_id UUID PRIMARY KEY,
-        username VARCHAR(255) UNIQUE NOT NULL,
-        password_hash VARCHAR(255),
-        public_key JSONB,
-        socket_id VARCHAR(255),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
+    // Test connection
+    await prisma.$connect();
+    console.log('Connected to PostgreSQL database via Prisma');
 
-    // Add password_hash column if it doesn't exist (for existing databases)
-    await pool.query(`
-      DO $$ 
-      BEGIN
-        IF NOT EXISTS (
-          SELECT 1 FROM information_schema.columns 
-          WHERE table_name = 'users' AND column_name = 'password_hash'
-        ) THEN
-          ALTER TABLE users ADD COLUMN password_hash VARCHAR(255);
-        END IF;
-      END $$;
-    `);
-
-    // Create messages table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS messages (
-        message_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        from_user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-        to_user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-        encrypted_message BYTEA NOT NULL,
-        iv BYTEA NOT NULL,
-        tag BYTEA,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Create indexes for better query performance
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_messages_from_user ON messages(from_user_id);
-    `);
-
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_messages_to_user ON messages(to_user_id);
-    `);
-
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
-    `);
-
+    // Prisma Migrate will handle schema changes
+    // For existing databases, we'll use prisma db push or migrations
     console.log('Database schema initialized successfully');
   } catch (error) {
     console.error('Error initializing database schema:', error);
@@ -82,7 +33,6 @@ const initSchema = async () => {
 };
 
 module.exports = {
-  pool,
+  prisma,
   initSchema,
 };
-

@@ -1,0 +1,39 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  user_id          String    @id @db.Uuid
+  username         String    @unique @db.VarChar(255)
+  publicKey        Json?     @map("public_key")
+  socketId         String?   @map("socket_id") @db.VarChar(255)
+  createdAt        DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
+  lastSeen         DateTime? @default(now()) @map("last_seen") @db.Timestamp(6)
+  passwordHash     String?   @map("password_hash") @db.VarChar(255)
+  sentMessages     Message[] @relation("FromUser")
+  receivedMessages Message[] @relation("ToUser")
+
+  @@map("users")
+}
+
+model Message {
+  message_id       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fromUserId       String    @map("from_user_id") @db.Uuid
+  toUserId         String    @map("to_user_id") @db.Uuid
+  encryptedMessage Bytes     @map("encrypted_message")
+  iv               Bytes
+  tag              Bytes?
+  createdAt        DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
+  fromUser         User      @relation("FromUser", fields: [fromUserId], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  toUser           User      @relation("ToUser", fields: [toUserId], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([createdAt], map: "idx_messages_created_at")
+  @@index([fromUserId], map: "idx_messages_from_user")
+  @@index([toUserId], map: "idx_messages_to_user")
+  @@map("messages")
+}
